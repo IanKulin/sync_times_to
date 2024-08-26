@@ -7,7 +7,7 @@ import argparse
 
 
 # Function to check file sizes and update timestamps
-def sync_files(local_dir, remote_machine):
+def sync_files(local_dir, remote_machine, update_directory):
     # List all files in the local directory
     local_files = os.listdir(local_dir)
 
@@ -37,6 +37,12 @@ def sync_files(local_dir, remote_machine):
                 print(f"File sizes do not match for {file_name}")
         else:
             print(f"File {file_name} does not exist on the remote server")
+
+    if update_directory:
+        # Update the timestamp of the parent directory
+        local_dir_mtime = os.path.getmtime(local_dir)
+        update_remote_file_timestamp(remote_machine, local_dir, local_dir_mtime)
+        print(f"Time updated for parent directory: {local_dir}")
 
 
 def file_exists_on_remote(server_address, remote_file_path):
@@ -81,9 +87,10 @@ def compute_remote_file_hash(server_address, remote_file_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Sync file timestamps between local and remote directories.")
     parser.add_argument("remote_machine", help="The remote machine address in the format 'user@hostname'")
+    parser.add_argument("-d", "--update-directory", action="store_true", help="Update the timestamp of the parent directory")
     args = parser.parse_args()
 
     remote_machine = args.remote_machine
     local_directory = os.getcwd()
 
-    sync_files(local_directory, remote_machine)
+    sync_files(local_directory, remote_machine, args.update_directory)
