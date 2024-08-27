@@ -18,11 +18,24 @@ def sync_files(local_dir, remote_machine, update_directory):
 
         # Check if the file exists on the remote server
         if file_exists_on_remote(remote_machine, quoted_file_path):
+
             # Get the size of the local and remote files
             local_size = os.path.getsize(file_path)
             remote_size = get_remote_file_size(remote_machine, quoted_file_path)
 
             if local_size == remote_size:
+
+                # Get the local file's modification time
+                local_mtime = os.path.getmtime(file_path)
+                # Get the remote file's modification time
+                remote_mtime = get_remote_file_mtime(remote_machine, quoted_file_path)
+
+                # we truncate the local time to match the precision of the 'stat'
+                # command used for the remote time
+                if int(local_mtime) == remote_mtime:
+                    print(f"Times match for {file_name}, skipping hash check")
+                    continue
+
                 # Compute the SHA-256 hash of the local and remote files
                 local_hash = compute_local_file_hash(file_path)
                 remote_hash = compute_remote_file_hash(remote_machine, quoted_file_path)
@@ -61,6 +74,15 @@ def get_remote_file_size(server_address, remote_file_path):
         return int(result.stdout.decode().strip())
     else:
         raise Exception(f"Failed to get file size for {remote_file_path}: {result.stderr.decode().strip()}")
+
+
+def get_remote_file_mtime(server_address, remote_file_path):
+    command = f'ssh {server_address} "stat -c %Y {remote_file_path}"'
+    result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode == 0:
+        return int(result.stdout.decode().strip())
+    else:
+        raise Exception(f"Failed to get file modification time for {remote_file_path}: {result.stderr.decode().strip()}")
 
 
 def update_remote_file_timestamp(server_address, remote_file_path, mtime):
