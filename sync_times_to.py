@@ -7,8 +7,7 @@ import argparse
 import shlex  # for quoting paths
 
 
-# Function to check file sizes and update timestamps
-def sync_files(local_dir, remote_machine, update_directory_flag):
+def sync_file_times(local_dir, remote_machine, update_directory_flag):
     local_files = os.listdir(local_dir)
 
     for file_name in local_files:
@@ -19,30 +18,19 @@ def sync_files(local_dir, remote_machine, update_directory_flag):
             print(f"File {file_name} does not exist on the remote server")
             continue
 
-        local_size = os.path.getsize(file_path)
-        remote_size = get_remote_file_size(remote_machine, quoted_file_path)
-
-        if local_size != remote_size:
+        if not file_sizes_match(file_path, remote_machine, quoted_file_path):
             print(f"File sizes do not match for {file_name}")
             continue
 
-        local_mtime = os.path.getmtime(file_path)
-        remote_mtime = get_remote_file_mtime(remote_machine, quoted_file_path)
-
-        # we truncate the local time to match the precision of the 'stat'
-        # command used for the remote time
-        if int(local_mtime) == remote_mtime:
-            print(f"Times match for {file_name}, skipping hash check")
+        if file_times_match(file_path, remote_machine, quoted_file_path):
+            print(f"File timestamp already matches for {file_name}")
             continue
 
-        local_hash = compute_local_file_hash(file_path)
-        remote_hash = compute_remote_file_hash(remote_machine, quoted_file_path)
-
-        if local_hash != remote_hash:
+        if not file_contents_match(file_path, remote_machine, quoted_file_path):
             print(f"File contents do not match for {file_name}")
             continue
 
-        update_remote_file_timestamp(remote_machine, quoted_file_path, local_mtime)
+        update_remote_file_timestamp(remote_machine, quoted_file_path, os.path.getmtime(file_path))
         print(f"Time updated for {file_name}")
 
     if update_directory_flag:
@@ -57,6 +45,24 @@ def file_exists_on_remote(server_address, remote_file_path):
     command = f'ssh {server_address} "test -e {remote_file_path}"'
     result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return result.returncode == 0
+
+
+def file_sizes_match(local_file_path, server_address, remote_file_path):
+    local_size = os.path.getsize(local_file_path)
+    remote_size = get_remote_file_size(server_address, remote_file_path)
+    return local_size == remote_size
+
+
+def file_times_match(local_file_path, server_address, remote_file_path):
+    local_mtime = os.path.getmtime(local_file_path)
+    remote_mtime = get_remote_file_mtime(server_address, remote_file_path)
+    return int(local_mtime) == remote_mtime
+
+
+def file_contents_match(local_file_path, server_address, remote_file_path):
+    local_hash = compute_local_file_hash(local_file_path)
+    remote_hash = compute_remote_file_hash(server_address, remote_file_path)
+    return local_hash == remote_hash
 
 
 def get_remote_file_size(server_address, remote_file_path):
@@ -110,4 +116,4 @@ if __name__ == "__main__":
     remote_machine = args.remote_machine
     local_directory = os.getcwd()
 
-    sync_files(local_directory, remote_machine, args.update_directory)
+    sync_file_times(local_directory, remote_machine, args.update_directory)
