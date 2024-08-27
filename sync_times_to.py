@@ -9,49 +9,41 @@ import shlex  # for quoting paths
 
 # Function to check file sizes and update timestamps
 def sync_files(local_dir, remote_machine, update_directory):
-    # List all files in the local directory
     local_files = os.listdir(local_dir)
 
     for file_name in local_files:
         file_path = os.path.join(local_dir, file_name)
         quoted_file_path = shlex.quote(file_path)
 
-        # Check if the file exists on the remote server
-        if file_exists_on_remote(remote_machine, quoted_file_path):
-
-            # Get the size of the local and remote files
-            local_size = os.path.getsize(file_path)
-            remote_size = get_remote_file_size(remote_machine, quoted_file_path)
-
-            if local_size == remote_size:
-
-                # Get the local file's modification time
-                local_mtime = os.path.getmtime(file_path)
-                # Get the remote file's modification time
-                remote_mtime = get_remote_file_mtime(remote_machine, quoted_file_path)
-
-                # we truncate the local time to match the precision of the 'stat'
-                # command used for the remote time
-                if int(local_mtime) == remote_mtime:
-                    print(f"Times match for {file_name}, skipping hash check")
-                    continue
-
-                # Compute the SHA-256 hash of the local and remote files
-                local_hash = compute_local_file_hash(file_path)
-                remote_hash = compute_remote_file_hash(remote_machine, quoted_file_path)
-
-                if local_hash == remote_hash:
-                    # Get the local file's modification time
-                    local_mtime = os.path.getmtime(file_path)
-                    # Update the remote file's timestamp
-                    update_remote_file_timestamp(remote_machine, quoted_file_path, local_mtime)
-                    print(f"Time updated for {file_name}")
-                else:
-                    print(f"File contents do not match for {file_name}")
-            else:
-                print(f"File sizes do not match for {file_name}")
-        else:
+        if not file_exists_on_remote(remote_machine, quoted_file_path):
             print(f"File {file_name} does not exist on the remote server")
+            continue
+
+        local_size = os.path.getsize(file_path)
+        remote_size = get_remote_file_size(remote_machine, quoted_file_path)
+
+        if local_size != remote_size:
+            print(f"File sizes do not match for {file_name}")
+            continue
+
+        local_mtime = os.path.getmtime(file_path)
+        remote_mtime = get_remote_file_mtime(remote_machine, quoted_file_path)
+
+        # we truncate the local time to match the precision of the 'stat'
+        # command used for the remote time
+        if int(local_mtime) == remote_mtime:
+            print(f"Times match for {file_name}, skipping hash check")
+            continue
+
+        local_hash = compute_local_file_hash(file_path)
+        remote_hash = compute_remote_file_hash(remote_machine, quoted_file_path)
+
+        if local_hash != remote_hash:
+            print(f"File contents do not match for {file_name}")
+            continue
+
+        update_remote_file_timestamp(remote_machine, quoted_file_path, local_mtime)
+        print(f"Time updated for {file_name}")
 
     if update_directory:
         # Update the timestamp of the parent directory
