@@ -8,7 +8,7 @@ import shlex  # for quoting paths
 
 
 # Function to check file sizes and update timestamps
-def sync_files(local_dir, remote_machine, update_directory):
+def sync_files(local_dir, remote_machine, update_directory_flag):
     local_files = os.listdir(local_dir)
 
     for file_name in local_files:
@@ -45,7 +45,7 @@ def sync_files(local_dir, remote_machine, update_directory):
         update_remote_file_timestamp(remote_machine, quoted_file_path, local_mtime)
         print(f"Time updated for {file_name}")
 
-    if update_directory:
+    if update_directory_flag:
         # Update the timestamp of the parent directory
         local_dir_mtime = os.path.getmtime(local_dir)
         quoted_local_dir = shlex.quote(local_dir)
